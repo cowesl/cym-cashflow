@@ -8,8 +8,8 @@ import hashlib
 import os
 from supabase import create_client, Client
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://pttwktanhoxohnfxiafu.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dHdrdGFuaG94b2huZnhpYWZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTI5NjgsImV4cCI6MjA5MTY2ODk2OH0.aIH493PLy7HcfKBUcITYUAIo2gPzuljGH3hxI4OJJBk")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
 _client: Client = None
 
