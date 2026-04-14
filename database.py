@@ -8,8 +8,13 @@ import hashlib
 import os
 from supabase import create_client, Client
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+try:
+    import streamlit as _st
+    SUPABASE_URL = _st.secrets.get("SUPABASE_URL") or os.environ.get("SUPABASE_URL", "")
+    SUPABASE_KEY = _st.secrets.get("SUPABASE_KEY") or os.environ.get("SUPABASE_KEY", "")
+except Exception:
+    SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+    SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
 _client: Client = None
 
