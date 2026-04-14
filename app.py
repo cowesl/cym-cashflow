@@ -209,35 +209,20 @@ db.seed_impositivos_default()
 db.seed_prestamos_default()
 db.seed_proveedores_default()
 
-# Corrección automática de reglas
-_conn = db.get_connection()
-_conn.execute("UPDATE egresos_laborales SET regla='penultimo_habil' WHERE concepto='Sueldos Mensuales' AND regla!='penultimo_habil'")
+# Corrección automática de reglas (Supabase)
+try:
+    _lab_rows = db.get_laborales()
+    for _r in _lab_rows:
+        if _r["concepto"] == "Sueldos Mensuales" and _r["regla"] != "penultimo_habil":
+            db.update_laboral(_r["id"], _r["monto"], "penultimo_habil", _r.get("activo", 1))
+except Exception:
+    pass
 
-# Migración impositivos: eliminar viejos y cargar nuevos si no están
-_conceptos_nuevos = ['DREI - Corral de Bustos','DREI - La Matanza','DREI - Soldini',
-    'ISIB - Convenio Multilateral','ARBA - Retenciones Buenos Aires - Pago a Cuenta',
-    'ARBA - Retenciones Buenos Aires - Saldo','SICORE - Retenciones Ganancias - Pago a Cuenta',
-    'SICORE - Retenciones Ganancias - Saldo','SIRCAR - Retenciones Santa Fe - Pago a Cuenta',
-    'SIRCAR - Retenciones Santa Fe - Saldo']
-_tiene_nuevos = _conn.execute("SELECT COUNT(*) FROM egresos_impositivos WHERE concepto=?", (_conceptos_nuevos[0],)).fetchone()[0]
-if _tiene_nuevos == 0:
-    _conn.execute("DELETE FROM egresos_impositivos WHERE concepto NOT IN ('Autónomos', 'Empleada Doméstica', 'Monotributo')")
-    _nuevos_imp = [
-        ('DREI - Corral de Bustos',                          'COMARB', 0, 'd15'),
-        ('DREI - La Matanza',                                'COMARB', 0, 'd14'),
-        ('DREI - Soldini',                                   'COMARB', 0, 'd15'),
-        ('ISIB - Convenio Multilateral',                     'COMARB', 0, 'd16'),
-        ('ARBA - Retenciones Buenos Aires - Pago a Cuenta',  'ARBA',   0, 'd22'),
-        ('ARBA - Retenciones Buenos Aires - Saldo',          'ARBA',   0, 'd10'),
-        ('SICORE - Retenciones Ganancias - Pago a Cuenta',   'ARCA',   0, 'd22'),
-        ('SICORE - Retenciones Ganancias - Saldo',           'ARCA',   0, 'd10'),
-        ('SIRCAR - Retenciones Santa Fe - Pago a Cuenta',    'COMARB', 0, 'd22'),
-        ('SIRCAR - Retenciones Santa Fe - Saldo',            'COMARB', 0, 'd06'),
-    ]
-    _conn.executemany("INSERT INTO egresos_impositivos (concepto,organismo,monto,regla) VALUES (?,?,?,?)", _nuevos_imp)
-
-_conn.commit()
-_conn.close()
+# Migración impositivos: cargar nuevos si no están
+try:
+    db.seed_impositivos_default()
+except Exception:
+    pass
 
 st.markdown("""
 <div class="cym-header">
@@ -933,13 +918,7 @@ with tab_lab:
     if cambios_lab:
         if st.button("💾 Guardar cambios"):
             for id_, datos in cambios_lab.items():
-                conn = db.get_connection()
-                conn.execute(
-                    "UPDATE egresos_laborales SET monto=?, regla=?, updated_at=datetime('now','localtime') WHERE id=?",
-                    (datos["monto"], datos["regla"], id_)
-                )
-                conn.commit()
-                conn.close()
+                db.update_laboral(id_, datos["monto"], datos["regla"], True)
             cached_proyeccion_laborales.clear()
             st.success("✅ Cambios guardados.")
             st.rerun()
