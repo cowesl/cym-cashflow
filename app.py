@@ -64,6 +64,64 @@ def cached_get_aduanero():
 def cached_get_plazos_fijos():
     return db.get_plazos_fijos()
 
+@st.cache_data(ttl=30)
+def cached_todos_egresos():
+    """Calcula todos los egresos proyectados. Se cachea para que las flechas del calendario sean rápidas."""
+    laborales_db  = cached_get_laborales()
+    financieros_c = cached_get_financieros()
+    prestamos_db  = cached_get_prestamos()
+    impositivos_db = cached_get_impositivos()
+    proveedores_db = cached_get_proveedores()
+    aduanero_db   = cached_get_aduanero()
+
+    lab_tuple = tuple((r["concepto"], r["monto"], r["regla"], bool(r["activo"])) for r in laborales_db)
+    proj_lab = cached_proyeccion_laborales(lab_tuple)
+
+    prest_tuple = tuple((p["concepto"], p["organismo"], p.get("subtipo","prestamo"),
+                         p["monto"], p["regla"], p["fecha_ultima_cuota"], bool(p["activo"]))
+                        for p in prestamos_db)
+    proj_prest = cached_proyeccion_prestamos(prest_tuple)
+
+    imp_tuple = tuple((r["concepto"], r["organismo"], r["monto"], r["regla"], bool(r["activo"])) for r in impositivos_db)
+    proj_imp = cached_proyeccion_impositivos(imp_tuple, unificar=True)
+
+    prov_tuple = tuple((p["codigo"], p["nombre"], p["monto"], p["regla"], p.get("regla2",""), bool(p["activo"])) for p in proveedores_db)
+    proj_com = cached_proyeccion_comercial(prov_tuple)
+
+    egresos = []
+    for r in proj_lab:
+        egresos.append({"fecha": r["fecha"], "cat": "Laboral", "desc": r["descripcion"], "monto": r["monto"], "monto_usd": 0.0, "est": False})
+    for f in financieros_c:
+        try:
+            fp = date.fromisoformat(f["fecha_pago_habil"])
+        except Exception:
+            continue
+        banco_corto = f["organismo"].replace("Banco ","").replace("banco ","")
+        egresos.append({"fecha": fp, "cat": "Financiero", "desc": f"{f['tipo']} {banco_corto}", "monto": f["monto"], "monto_usd": f.get("monto_usd") or 0.0, "est": bool(f.get("es_estimado"))})
+    for r in proj_prest:
+        org_corto = r["organismo"].replace("Banco ","").replace("banco ","")
+        prefijo = "Plan" if r.get("subtipo") == "plan_de_pago" else "Prest"
+        egresos.append({"fecha": r["fecha"], "cat": "Financiero", "desc": f"{prefijo} {org_corto} {r['concepto']}", "monto": r["monto"], "monto_usd": 0.0, "est": False})
+    for r in proj_imp:
+        egresos.append({"fecha": r["fecha"], "cat": "Impositivo", "desc": r["descripcion"], "monto": r["monto"], "monto_usd": 0.0, "est": False})
+    for r in proj_com:
+        codigo_str = f"{r['codigo']} " if r.get("codigo") else ""
+        egresos.append({"fecha": r["fecha"], "cat": "Comercial", "desc": f"{codigo_str}{r['descripcion']}", "monto": r["monto"], "monto_usd": 0.0, "est": False})
+    desde_adu = date.today() - timedelta(days=DIAS_PASADO)
+    for reg in aduanero_db:
+        if not reg.get("activo", True) or not reg.get("vencimiento"):
+            continue
+        try:
+            fecha_adu = date.fromisoformat(reg["vencimiento"])
+        except Exception:
+            continue
+        if fecha_adu < desde_adu:
+            continue
+        codigo_str = f"{reg['codigo']} " if reg.get("codigo") else ""
+        egresos.append({"fecha": fecha_adu, "cat": "Aduanero", "desc": f"{codigo_str}{reg['proveedor']}", "monto": 0.0, "monto_usd": float(reg["monto_usd"]), "est": False})
+    egresos.sort(key=lambda x: x["fecha"])
+    return egresos
+
 MESES_ES = {
     1:"enero",2:"febrero",3:"marzo",4:"abril",5:"mayo",6:"junio",
     7:"julio",8:"agosto",9:"septiembre",10:"octubre",11:"noviembre",12:"diciembre"
@@ -288,96 +346,9 @@ with tab_dash:
         "Vencido":    {"bg": "#F1EFE8", "fg": "#5F5E5A", "borde": "#888780"},
     }
 
-    # ── Datos ─────────────────────────────────────────────────
-    laborales_db  = cached_get_laborales()
-    financieros_c = cached_get_financieros()
-
-    lab_tuple = tuple((r["concepto"], r["monto"], r["regla"], bool(r["activo"])) for r in laborales_db)
-    proj_lab = cached_proyeccion_laborales(lab_tuple)
-
-    # Préstamos
-    prestamos_db_dash = cached_get_prestamos()
-    prest_tuple = tuple((p["concepto"], p["organismo"], p.get("subtipo","prestamo"),
-                         p["monto"], p["regla"], p["fecha_ultima_cuota"], bool(p["activo"]))
-                        for p in prestamos_db_dash)
-    proj_prest_dash = cached_proyeccion_prestamos(prest_tuple)
-
-    # Impositivos
-    impositivos_db_dash = cached_get_impositivos()
-    imp_tuple = tuple((r["concepto"], r["organismo"], r["monto"], r["regla"], bool(r["activo"])) for r in impositivos_db_dash)
-    proj_imp_dash = cached_proyeccion_impositivos(imp_tuple, unificar=True)
-
-    # Armar lista unificada de egresos
-    todos_egresos = []
-    for r in proj_lab:
-        todos_egresos.append({
-            "fecha": r["fecha"], "cat": "Laboral",
-            "desc": r["descripcion"], "monto": r["monto"],
-            "monto_usd": 0.0, "est": False,
-        })
-    for f in financieros_c:
-        try:
-            fp = date.fromisoformat(f["fecha_pago_habil"])
-        except (ValueError, TypeError):
-            continue
-        # Formato nombre tarjeta: "Visa Santander", "Cabal Credicoop", etc.
-        banco_corto = f["organismo"].replace("Banco ","").replace("banco ","")
-        desc_tar = f"{f['tipo']} {banco_corto}"
-        todos_egresos.append({
-            "fecha": fp, "cat": "Financiero",
-            "desc": desc_tar,
-            "monto": f["monto"],
-            "monto_usd": f.get("monto_usd") or 0.0,
-            "est": bool(f.get("es_estimado")),
-        })
-    for r in proj_prest_dash:
-        org_corto = r["organismo"].replace("Banco ","").replace("banco ","")
-        prefijo = "Plan" if r.get("subtipo") == "plan_de_pago" else "Prest"
-        desc_p = f"{prefijo} {org_corto} {r['concepto']}"
-        todos_egresos.append({
-            "fecha": r["fecha"], "cat": "Financiero",
-            "desc": desc_p, "monto": r["monto"],
-            "monto_usd": 0.0, "est": False,
-        })
-    for r in proj_imp_dash:
-        todos_egresos.append({
-            "fecha": r["fecha"], "cat": "Impositivo",
-            "desc": r["descripcion"], "monto": r["monto"],
-            "monto_usd": 0.0, "est": False,
-        })
-
-    # Comerciales
-    proveedores_db_dash = cached_get_proveedores()
-    prov_tuple_dash = tuple((p["codigo"], p["nombre"], p["monto"], p["regla"], p.get("regla2",""), bool(p["activo"])) for p in proveedores_db_dash)
-    proj_com_dash = cached_proyeccion_comercial(prov_tuple_dash)
-    for r in proj_com_dash:
-        codigo_str = f"{r['codigo']} " if r.get("codigo") else ""
-        todos_egresos.append({
-            "fecha": r["fecha"], "cat": "Comercial",
-            "desc": f"{codigo_str}{r['descripcion']}", "monto": r["monto"],
-            "monto_usd": 0.0, "est": False,
-        })
-    # Aduanero — vencimientos con fecha específica, monto en U$S
-    aduanero_db_dash = cached_get_aduanero()
-    desde_adu = date.today() - timedelta(days=DIAS_PASADO)
-    for reg in aduanero_db_dash:
-        if not reg.get("activo", True) or not reg.get("vencimiento"):
-            continue
-        try:
-            fecha_adu = date.fromisoformat(reg["vencimiento"])
-        except Exception:
-            continue
-        if fecha_adu < desde_adu:
-            continue
-        codigo_str = f"{reg['codigo']} " if reg.get("codigo") else ""
-        todos_egresos.append({
-            "fecha": fecha_adu, "cat": "Aduanero",
-            "desc": f"{codigo_str}{reg['proveedor']}",
-            "monto": 0.0,
-            "monto_usd": float(reg["monto_usd"]),
-            "est": False,
-        })
-    todos_egresos.sort(key=lambda x: x["fecha"])
+    # ── Datos (cacheados para que las flechas sean rápidas) ───
+    todos_egresos = cached_todos_egresos()
+    plazos_pf_data = cached_get_plazos_fijos()
 
     # ── KPIs globales (±30 días) ───────────────────────────────
     desde_kpi = hoy - timedelta(days=30)
@@ -574,7 +545,7 @@ with tab_dash:
             )
 
     # ── Plazos Fijos en Dashboard ────────────────────────────
-    plazos_dash = cached_get_plazos_fijos()
+    plazos_dash = plazos_pf_data
     hoy_pf = date.today()
     if plazos_dash:
         st.markdown("<div style='margin-top:20px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);padding:14px 16px'>", unsafe_allow_html=True)
@@ -903,6 +874,8 @@ with tab_imp:
             if nuevo_concepto_imp:
                 nueva_regla_imp = f"d{int(nuevo_dia_imp_new):02d}" if nuevo_dia_imp_new != 1 else "d01"
                 db.insert_impositivo(nuevo_concepto_imp, nuevo_org_imp, nuevo_monto_imp, nueva_regla_imp)
+                cached_get_impositivos.clear()
+                cached_proyeccion_impositivos.clear()
                 st.success(f"✅ {nuevo_concepto_imp} agregado.")
                 st.rerun()
 
@@ -953,6 +926,7 @@ with tab_lab:
                 db.update_laboral(id_, datos["monto"], datos["regla"], True)
             cached_proyeccion_laborales.clear()
             cached_get_laborales.clear()
+            cached_todos_egresos.clear()
             st.success("✅ Cambios guardados.")
             st.rerun()
 
@@ -983,6 +957,9 @@ with tab_lab:
         if st.button("💾 Agregar", key="btn_add_lab"):
             if nuevo_concepto_lab:
                 db.insert_laboral(nuevo_concepto_lab, nuevo_monto_lab, nueva_regla_lab)
+                cached_get_laborales.clear()
+                cached_proyeccion_laborales.clear()
+                cached_todos_egresos.clear()
                 st.success(f"✅ {nuevo_concepto_lab} agregado.")
                 st.rerun()
 
@@ -1048,6 +1025,7 @@ with tab_com:
                 db.update_proveedor(id_=id_, categoria=datos["categoria"], monto=datos["monto"], regla=datos["regla"], regla2=datos["regla2"], activo=True)
             cached_proyeccion_comercial.clear()
             cached_get_proveedores.clear()
+            cached_todos_egresos.clear()
             st.success("✅ Cambios guardados.")
             st.rerun()
 
@@ -1069,6 +1047,7 @@ with tab_com:
                 n_regla2_p = f"d{int(n_dia2_p):02d}" if n_dia2_p > 1 else ("d01" if n_dia2_p == 1 else "")
                 db.insert_proveedor(n_codigo, n_nombre.strip().title(), n_cat_p, n_monto_p, n_regla_p, n_regla2_p)
                 cached_proyeccion_comercial.clear()
+                cached_get_proveedores.clear()
                 st.success(f"✅ {n_nombre} agregado.")
                 st.rerun()
             else:
@@ -1115,6 +1094,7 @@ with tab_adu:
         if ac[4].button("🗑️", key=f"del_adu_{reg['id']}", help="Eliminar"):
             db.delete_aduanero(reg["id"])
             cached_get_aduanero.clear()
+            cached_todos_egresos.clear()
             st.rerun()
         venc_str_actual = reg["vencimiento"][:10] if reg.get("vencimiento") else ""
         if nuevo_monto_adu != reg["monto_usd"] or nuevo_venc_adu.isoformat() != venc_str_actual:
@@ -1126,6 +1106,7 @@ with tab_adu:
                 db.update_aduanero(id_=id_, monto_usd=datos["monto_usd"],
                                    vencimiento=datos["vencimiento"], activo=True)
             cached_get_aduanero.clear()
+            cached_todos_egresos.clear()
             st.success("✅ Cambios guardados.")
             st.rerun()
 
@@ -1140,6 +1121,8 @@ with tab_adu:
         if st.button("💾 Agregar", key="btn_add_adu"):
             if n_prov_adu:
                 db.insert_aduanero(n_cod_adu, n_prov_adu.strip().title(), n_monto_adu, n_venc_adu.isoformat())
+                cached_get_aduanero.clear()
+                cached_todos_egresos.clear()
                 st.success(f"✅ {n_prov_adu} agregado.")
                 st.rerun()
             else:
@@ -1246,6 +1229,7 @@ with tab_ing:
         if pc[3].button("🗑️", key=f"del_pf_{p['id']}", help="Eliminar"):
             db.delete_plazo_fijo(p["id"])
             cached_get_plazos_fijos.clear()
+            cached_todos_egresos.clear()
             st.rerun()
 
         venc_pf_str = p["vencimiento"][:10] if p.get("vencimiento") else ""
@@ -1262,6 +1246,7 @@ with tab_ing:
                 db.update_plazo_fijo(id_=id_, banco=datos["banco"], monto=datos["monto"],
                                      vencimiento=datos["vencimiento"], notas="")
             cached_get_plazos_fijos.clear()
+            cached_todos_egresos.clear()
             st.success("✅ Cambios guardados.")
             st.rerun()
 
@@ -1276,6 +1261,8 @@ with tab_ing:
             if n_banco_pf and n_monto_pf > 0:
                 db.insert_plazo_fijo(n_banco_pf.strip().title(), n_monto_pf,
                                      n_venc_pf.isoformat(), "")
+                cached_get_plazos_fijos.clear()
+                cached_todos_egresos.clear()
                 st.success(f"✅ Plazo fijo {n_banco_pf} agregado.")
                 st.rerun()
             else:
