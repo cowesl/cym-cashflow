@@ -665,6 +665,7 @@ with tab_fin:
         tc[5].write(fecha_disp)
         if tc[6].button("🗑️", key=f"del_tar_{f['id']}", help="Eliminar tarjeta"):
             db.delete_financiero(f["id"])
+            cached_get_financieros.clear()
             st.rerun()
 
     # ── Préstamos y Planes ─────────────────────────────────────
@@ -686,6 +687,8 @@ with tab_fin:
                            format="DD/MM/YYYY")
         if pc[6].button("🗑️", key=f"del_p_{p['id']}", help="Eliminar"):
             db.delete_prestamo(p["id"])
+            cached_get_prestamos.clear()
+            cached_proyeccion_prestamos.clear()
             st.rerun()
         fecha_cuota_str = p["fecha_ultima_cuota"][:10] if p.get("fecha_ultima_cuota") else ""
         if nuevo_monto_p != p["monto"] or nueva_fecha.isoformat() != fecha_cuota_str:
@@ -938,6 +941,8 @@ with tab_lab:
         )
         if c4.button("🗑️", key=f"del_lab_{reg['id']}", help="Eliminar"):
             db.delete_laboral(reg["id"])
+            cached_get_laborales.clear()
+            cached_proyeccion_laborales.clear()
             st.rerun()
         if nuevo_monto != reg["monto"] or nueva_regla != reg["regla"]:
             cambios_lab[reg["id"]] = {"monto": nuevo_monto, "regla": nueva_regla}
@@ -1029,6 +1034,8 @@ with tab_com:
         nueva_regla2_p = f"d{int(nuevo_dia2_p):02d}" if nuevo_dia2_p > 1 else ("d01" if nuevo_dia2_p == 1 else "")
         if pc[6].button("🗑️", key=f"del_prov_{p['id']}", help="Eliminar"):
             db.delete_proveedor(p["id"])
+            cached_get_proveedores.clear()
+            cached_proyeccion_comercial.clear()
             st.rerun()
         if (nuevo_monto_p != p["monto"] or nueva_regla_p != p["regla"] or
                 nueva_cat_p != p.get("categoria","") or nueva_regla2_p != p.get("regla2","")):
@@ -1107,6 +1114,7 @@ with tab_adu:
         )
         if ac[4].button("🗑️", key=f"del_adu_{reg['id']}", help="Eliminar"):
             db.delete_aduanero(reg["id"])
+            cached_get_aduanero.clear()
             st.rerun()
         venc_str_actual = reg["vencimiento"][:10] if reg.get("vencimiento") else ""
         if nuevo_monto_adu != reg["monto_usd"] or nuevo_venc_adu.isoformat() != venc_str_actual:
@@ -1237,6 +1245,7 @@ with tab_ing:
         )
         if pc[3].button("🗑️", key=f"del_pf_{p['id']}", help="Eliminar"):
             db.delete_plazo_fijo(p["id"])
+            cached_get_plazos_fijos.clear()
             st.rerun()
 
         venc_pf_str = p["vencimiento"][:10] if p.get("vencimiento") else ""
