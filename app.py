@@ -300,7 +300,7 @@ st.markdown("""
 <div class="cym-header">
     <div class="cym-header-text">
         <h1>CYM Materiales SA — Cash Flow</h1>
-        <p>Gestión de Egresos · Laborales + Financieros + Impositivos · v2.8</p>
+
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -452,9 +452,11 @@ with tab_dash:
     nav1, nav2, nav3, nav4 = st.columns([1, 4, 1, 2])
     if nav1.button("←", key="sem_prev"):
         st.session_state.sem_offset -= 1
+        st.cache_data.clear()
         st.rerun()
     if nav3.button("→", key="sem_next"):
         st.session_state.sem_offset += 1
+        st.cache_data.clear()
         st.rerun()
     if nav4.button("Hoy", key="sem_hoy"):
         st.session_state.sem_offset = 0
@@ -591,9 +593,6 @@ with tab_dash:
 with tab_fin:
 
     st.markdown('<div class="sec-title">Conceptos Financieros</div>', unsafe_allow_html=True)
-    if not _es_admin:
-        st.info("🔒 Solo lectura. Contactá al administrador para realizar cambios.")
-
     prestamos_conf = cached_get_prestamos()
     fin_conf = db.get_financieros(solo_confirmados=True)
     tarjetas_vistas = {}
@@ -874,9 +873,6 @@ with tab_imp:
 with tab_lab:
 
     st.markdown('<div class="sec-title">Conceptos Laborales</div>', unsafe_allow_html=True)
-    if not _es_admin:
-        st.info("🔒 Solo lectura. Contactá al administrador para realizar cambios.")
-
     laborales = db.get_laborales()
 
     # ── Tabla editable fila por fila ────────────────────────────
@@ -962,9 +958,6 @@ with tab_lab:
 with tab_com:
 
     st.markdown('<div class="sec-title">Proveedores de Servicios</div>', unsafe_allow_html=True)
-    if not _es_admin:
-        st.info("🔒 Solo lectura. Contactá al administrador para realizar cambios.")
-
     proveedores_db = db.get_proveedores()
 
     # ── Encabezado ──────────────────────────────────────────────
