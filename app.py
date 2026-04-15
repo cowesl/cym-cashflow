@@ -36,9 +36,33 @@ def cached_proyeccion_comercial(prov_tuple):
     proveedores = [{"codigo": p[0], "nombre": p[1], "monto": p[2], "regla": p[3], "regla2": p[4], "activo": p[5]} for p in prov_tuple]
     return bl.generar_proyeccion_comercial(proveedores, meses=6)
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=30)
 def cached_get_financieros():
     return db.get_financieros(solo_confirmados=True)
+
+@st.cache_data(ttl=30)
+def cached_get_laborales():
+    return db.get_laborales()
+
+@st.cache_data(ttl=30)
+def cached_get_prestamos():
+    return db.get_prestamos()
+
+@st.cache_data(ttl=30)
+def cached_get_impositivos():
+    return db.get_impositivos()
+
+@st.cache_data(ttl=30)
+def cached_get_proveedores():
+    return db.get_proveedores()
+
+@st.cache_data(ttl=30)
+def cached_get_aduanero():
+    return db.get_aduanero()
+
+@st.cache_data(ttl=30)
+def cached_get_plazos_fijos():
+    return db.get_plazos_fijos()
 
 MESES_ES = {
     1:"enero",2:"febrero",3:"marzo",4:"abril",5:"mayo",6:"junio",
@@ -265,21 +289,21 @@ with tab_dash:
     }
 
     # ── Datos ─────────────────────────────────────────────────
-    laborales_db  = db.get_laborales()
-    financieros_c = db.get_financieros(solo_confirmados=True)
+    laborales_db  = cached_get_laborales()
+    financieros_c = cached_get_financieros()
 
     lab_tuple = tuple((r["concepto"], r["monto"], r["regla"], bool(r["activo"])) for r in laborales_db)
     proj_lab = cached_proyeccion_laborales(lab_tuple)
 
     # Préstamos
-    prestamos_db_dash = db.get_prestamos()
+    prestamos_db_dash = cached_get_prestamos()
     prest_tuple = tuple((p["concepto"], p["organismo"], p.get("subtipo","prestamo"),
                          p["monto"], p["regla"], p["fecha_ultima_cuota"], bool(p["activo"]))
                         for p in prestamos_db_dash)
     proj_prest_dash = cached_proyeccion_prestamos(prest_tuple)
 
     # Impositivos
-    impositivos_db_dash = db.get_impositivos()
+    impositivos_db_dash = cached_get_impositivos()
     imp_tuple = tuple((r["concepto"], r["organismo"], r["monto"], r["regla"], bool(r["activo"])) for r in impositivos_db_dash)
     proj_imp_dash = cached_proyeccion_impositivos(imp_tuple, unificar=True)
 
@@ -323,7 +347,7 @@ with tab_dash:
         })
 
     # Comerciales
-    proveedores_db_dash = db.get_proveedores()
+    proveedores_db_dash = cached_get_proveedores()
     prov_tuple_dash = tuple((p["codigo"], p["nombre"], p["monto"], p["regla"], p.get("regla2",""), bool(p["activo"])) for p in proveedores_db_dash)
     proj_com_dash = cached_proyeccion_comercial(prov_tuple_dash)
     for r in proj_com_dash:
@@ -334,7 +358,7 @@ with tab_dash:
             "monto_usd": 0.0, "est": False,
         })
     # Aduanero — vencimientos con fecha específica, monto en U$S
-    aduanero_db_dash = db.get_aduanero()
+    aduanero_db_dash = cached_get_aduanero()
     desde_adu = date.today() - timedelta(days=DIAS_PASADO)
     for reg in aduanero_db_dash:
         if not reg.get("activo", True) or not reg.get("vencimiento"):
@@ -550,7 +574,7 @@ with tab_dash:
             )
 
     # ── Plazos Fijos en Dashboard ────────────────────────────
-    plazos_dash = db.get_plazos_fijos()
+    plazos_dash = cached_get_plazos_fijos()
     hoy_pf = date.today()
     if plazos_dash:
         st.markdown("<div style='margin-top:20px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);padding:14px 16px'>", unsafe_allow_html=True)
@@ -861,6 +885,8 @@ with tab_imp:
 
         if nuevo_monto != reg["monto"] or nueva_regla != reg["regla"]:
             db.update_impositivo(id_=reg["id"], monto=nuevo_monto, regla=nueva_regla, activo=reg["activo"])
+            cached_get_impositivos.clear()
+            cached_proyeccion_impositivos.clear()
 
     st.markdown("---")
 
@@ -921,6 +947,7 @@ with tab_lab:
             for id_, datos in cambios_lab.items():
                 db.update_laboral(id_, datos["monto"], datos["regla"], True)
             cached_proyeccion_laborales.clear()
+            cached_get_laborales.clear()
             st.success("✅ Cambios guardados.")
             st.rerun()
 
@@ -1013,6 +1040,7 @@ with tab_com:
             for id_, datos in cambios_prov.items():
                 db.update_proveedor(id_=id_, categoria=datos["categoria"], monto=datos["monto"], regla=datos["regla"], regla2=datos["regla2"], activo=True)
             cached_proyeccion_comercial.clear()
+            cached_get_proveedores.clear()
             st.success("✅ Cambios guardados.")
             st.rerun()
 
@@ -1089,6 +1117,7 @@ with tab_adu:
             for id_, datos in cambios_adu.items():
                 db.update_aduanero(id_=id_, monto_usd=datos["monto_usd"],
                                    vencimiento=datos["vencimiento"], activo=True)
+            cached_get_aduanero.clear()
             st.success("✅ Cambios guardados.")
             st.rerun()
 
@@ -1223,6 +1252,7 @@ with tab_ing:
             for id_, datos in cambios_pf.items():
                 db.update_plazo_fijo(id_=id_, banco=datos["banco"], monto=datos["monto"],
                                      vencimiento=datos["vencimiento"], notas="")
+            cached_get_plazos_fijos.clear()
             st.success("✅ Cambios guardados.")
             st.rerun()
 
