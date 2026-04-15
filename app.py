@@ -305,8 +305,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 tabs_lista = ["📊 Dashboard", "🚢 (E) Aduaneros", "🏦 (E) Financieros", "🧾 (E) Impositivos", "👷 (E) Laborales", "🏪 (E) Servicios", "💰 (I) Plazos Fijos"]
-if _es_admin:
-    tabs_lista.append("👤 Usuarios")
 
 tabs_result = st.tabs(tabs_lista)
 tab_dash = tabs_result[0]
@@ -316,7 +314,6 @@ tab_imp  = tabs_result[3]
 tab_lab  = tabs_result[4]
 tab_com  = tabs_result[5]
 tab_ing  = tabs_result[6]
-tab_usr  = tabs_result[7] if _es_admin else None
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1109,70 +1106,6 @@ with tab_adu:
                 st.rerun()
             else:
                 st.error("Completá el nombre del proveedor.")
-
-
-# ═══════════════════════════════════════════════════════════════
-# TAB USUARIOS (solo admin)
-# ═══════════════════════════════════════════════════════════════
-if _es_admin and tab_usr is not None:
-    with tab_usr:
-        st.markdown('<div class="sec-title">Gestión de Usuarios</div>', unsafe_allow_html=True)
-
-        usuarios_db = db.get_usuarios()
-
-        # Encabezado
-        eh = st.columns([2, 2, 1, 1, 1])
-        for col, txt in zip(eh, ["Usuario", "Nombre", "Rol", "Activo", "Eliminar"]):
-            col.markdown(f"<small style='color:#B0B0B0;font-size:11px'>{txt}</small>", unsafe_allow_html=True)
-        st.markdown("<hr style='margin:2px 0 6px'>", unsafe_allow_html=True)
-
-        for u in usuarios_db:
-            uc = st.columns([2, 2, 1, 1, 1])
-            uc[0].write(u["username"])
-            uc[1].write(u["nombre"] or "—")
-            uc[2].write(u["rol"])
-            activo_val = bool(u["activo"])
-            nuevo_activo = uc[3].checkbox("", value=activo_val, key=f"usr_act_{u['id']}", label_visibility="collapsed")
-            if nuevo_activo != activo_val:
-                db.update_usuario_activo(u["id"], nuevo_activo)
-                st.rerun()
-            if u["rol"] != "admin":
-                if uc[4].button("🗑️", key=f"del_usr_{u['id']}", help="Eliminar"):
-                    db.delete_usuario(u["id"])
-                    st.rerun()
-
-        st.markdown("---")
-
-        # Cambiar contraseña
-        with st.expander("🔑 Cambiar contraseña"):
-            cp1, cp2, cp3 = st.columns(3)
-            usr_sel = cp1.selectbox("Usuario", [u["username"] for u in usuarios_db], key="cp_usr")
-            new_pwd = cp2.text_input("Nueva contraseña", type="password", key="cp_pwd")
-            if cp3.button("Guardar", key="btn_cp"):
-                if new_pwd:
-                    uid = next(u["id"] for u in usuarios_db if u["username"] == usr_sel)
-                    db.update_usuario_password(uid, new_pwd)
-                    st.success("✅ Contraseña actualizada.")
-
-        st.markdown("---")
-
-        # Agregar usuario
-        with st.expander("➕ Agregar usuario"):
-            nu1, nu2, nu3, nu4 = st.columns(4)
-            n_usr  = nu1.text_input("Usuario", key="new_usr_name")
-            n_nom  = nu2.text_input("Nombre", key="new_usr_nom")
-            n_rol  = nu3.selectbox("Rol", ["usuario", "admin"], key="new_usr_rol")
-            n_pwd  = nu4.text_input("Contraseña", type="password", key="new_usr_pwd")
-            if st.button("💾 Agregar usuario", key="btn_add_usr"):
-                if n_usr and n_pwd:
-                    try:
-                        db.insert_usuario(n_usr, n_pwd, n_rol, n_nom)
-                        st.success(f"✅ Usuario '{n_usr}' creado.")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Error: {e}")
-                else:
-                    st.error("Completá usuario y contraseña.")
 
 
 # ═══════════════════════════════════════════════════════════════
