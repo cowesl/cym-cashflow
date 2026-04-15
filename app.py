@@ -663,7 +663,8 @@ with tab_fin:
         if pc[6].button("🗑️", key=f"del_p_{p['id']}", help="Eliminar"):
             db.delete_prestamo(p["id"])
             st.rerun()
-        if nuevo_monto_p != p["monto"] or nueva_fecha.isoformat() != p["fecha_ultima_cuota"]:
+        fecha_cuota_str = p["fecha_ultima_cuota"][:10] if p.get("fecha_ultima_cuota") else ""
+        if nuevo_monto_p != p["monto"] or nueva_fecha.isoformat() != fecha_cuota_str:
             cambios_prest[p["id"]] = {"p": p, "monto": nuevo_monto_p, "fecha": nueva_fecha.isoformat()}
 
     if cambios_prest:
@@ -1079,7 +1080,8 @@ with tab_adu:
         if ac[4].button("🗑️", key=f"del_adu_{reg['id']}", help="Eliminar"):
             db.delete_aduanero(reg["id"])
             st.rerun()
-        if nuevo_monto_adu != reg["monto_usd"] or nuevo_venc_adu.isoformat() != reg["vencimiento"]:
+        venc_str_actual = reg["vencimiento"][:10] if reg.get("vencimiento") else ""
+        if nuevo_monto_adu != reg["monto_usd"] or nuevo_venc_adu.isoformat() != venc_str_actual:
             cambios_adu[reg["id"]] = {"monto_usd": nuevo_monto_adu, "vencimiento": nuevo_venc_adu.isoformat()}
 
     if cambios_adu:
@@ -1208,8 +1210,9 @@ with tab_ing:
             db.delete_plazo_fijo(p["id"])
             st.rerun()
 
+        venc_pf_str = p["vencimiento"][:10] if p.get("vencimiento") else ""
         if (nuevo_banco_pf != p["banco"] or nuevo_monto_pf != p["monto"] or
-                nuevo_venc_pf.isoformat() != p["vencimiento"]):
+                nuevo_venc_pf.isoformat() != venc_pf_str):
             cambios_pf[p["id"]] = {
                 "banco": nuevo_banco_pf, "monto": nuevo_monto_pf,
                 "vencimiento": nuevo_venc_pf.isoformat()
