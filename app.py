@@ -249,8 +249,11 @@ thead tr th { background:#D72B2B !important;color:white !important;font-size:.75
 </style>
 """, unsafe_allow_html=True)
 
-db.init_db()
-db.seed_laborales_default()
+# Seeds solo una vez por sesión (no en cada rerun)
+if "db_iniciada" not in st.session_state:
+    db.init_db()
+    db.seed_laborales_default()
+    st.session_state.db_iniciada = True
 
 # ── Login / Sesión ────────────────────────────────────────────────────────
 if "usuario_logueado" not in st.session_state:
@@ -287,24 +290,11 @@ with st.sidebar:
     if st.button("Cerrar sesión"):
         st.session_state.usuario_logueado = None
         st.rerun()
-db.seed_impositivos_default()
-db.seed_prestamos_default()
-db.seed_proveedores_default()
-
-# Corrección automática de reglas (Supabase)
-try:
-    _lab_rows = db.get_laborales()
-    for _r in _lab_rows:
-        if _r["concepto"] == "Sueldos Mensuales" and _r["regla"] != "penultimo_habil":
-            db.update_laboral(_r["id"], _r["monto"], "penultimo_habil", _r.get("activo", 1))
-except Exception:
-    pass
-
-# Migración impositivos: cargar nuevos si no están
-try:
+if "seeds_extra" not in st.session_state:
     db.seed_impositivos_default()
-except Exception:
-    pass
+    db.seed_prestamos_default()
+    db.seed_proveedores_default()
+    st.session_state.seeds_extra = True
 
 st.markdown("""
 <div class="cym-header">
@@ -604,7 +594,7 @@ with tab_fin:
     if not _es_admin:
         st.info("🔒 Solo lectura. Contactá al administrador para realizar cambios.")
 
-    prestamos_conf = db.get_prestamos()
+    prestamos_conf = cached_get_prestamos()
     fin_conf = db.get_financieros(solo_confirmados=True)
     tarjetas_vistas = {}
     for f in fin_conf:
@@ -814,7 +804,7 @@ with tab_imp:
 
     st.markdown('<div class="sec-title">Conceptos Impositivos</div>', unsafe_allow_html=True)
 
-    impositivos_db = db.get_impositivos()
+    impositivos_db = cached_get_impositivos()
 
     # ── Encabezado ──────────────────────────────────────────────
     ei = st.columns([4, 2, 2, 1])
