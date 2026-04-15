@@ -300,7 +300,6 @@ st.markdown("""
 <div class="cym-header">
     <div class="cym-header-text">
         <h1>CYM Materiales SA — Cash Flow</h1>
-
     </div>
 </div>
 """, unsafe_allow_html=True)
