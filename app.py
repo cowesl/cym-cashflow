@@ -233,17 +233,17 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-tabs_lista = ["📊 Dashboard", "🏦 (E) Financieros", "🧾 (E) Impositivos", "👷 (E) Laborales", "🏪 (E) Servicios", "🚢 (E) Aduaneros", "💰 (I) Plazos Fijos"]
+tabs_lista = ["📊 Dashboard", "🚢 (E) Aduaneros", "🏦 (E) Financieros", "🧾 (E) Impositivos", "👷 (E) Laborales", "🏪 (E) Servicios", "💰 (I) Plazos Fijos"]
 if _es_admin:
     tabs_lista.append("👤 Usuarios")
 
 tabs_result = st.tabs(tabs_lista)
 tab_dash = tabs_result[0]
-tab_fin  = tabs_result[1]
-tab_imp  = tabs_result[2]
-tab_lab  = tabs_result[3]
-tab_com  = tabs_result[4]
-tab_adu  = tabs_result[5]
+tab_adu  = tabs_result[1]
+tab_fin  = tabs_result[2]
+tab_imp  = tabs_result[3]
+tab_lab  = tabs_result[4]
+tab_com  = tabs_result[5]
 tab_ing  = tabs_result[6]
 tab_usr  = tabs_result[7] if _es_admin else None
 
