@@ -98,12 +98,12 @@ def get_monto_autonomos(anio: int, mes: int) -> float:
 
 def calcular_fecha_autonomos(anio: int, mes: int) -> date:
     """
-    Autónomos vencen el día 3 del mes SIGUIENTE al período devengado.
-    CUIT terminado en 2 → día 3 (o hábil siguiente).
+    Autónomos vencen el día 5 del mes SIGUIENTE al período devengado.
+    CUIT terminado en 2 → día 5 (o hábil siguiente).
     """
     mes_venc = mes % 12 + 1
     anio_venc = anio + (1 if mes == 12 else 0)
-    return siguiente_dia_habil(date(anio_venc, mes_venc, 3))
+    return siguiente_dia_habil(date(anio_venc, mes_venc, 5))
 
 REGLA_LABEL = {
     "d01": "Día 1", "d05": "Día 5", "d08": "Día 8", "d10": "Día 10",
