@@ -275,38 +275,38 @@ def generar_proyeccion_impositivos(conceptos: list, meses: int = 6,
             if not c.get("activo", True):
                 continue
 
-            if c["concepto"] == "Autónomos":
+            if c["concepto"] == "AUTÓNOMOS":
                 # Monto: DB si >0, sino ARCA
                 monto = c.get("monto") or 0
                 if not monto:
                     monto = get_monto_autonomos(anio_dev, mes_dev)
                 fecha = fecha_unificada if unificar_fechas else fecha_autonomos
                 rows.append({
-                    "fecha": fecha, "descripcion": "Autónomos",
+                    "fecha": fecha, "descripcion": "AUTÓNOMOS",
                     "organismo": c.get("organismo", "ARCA"),
                     "monto": monto, "categoria": "Impositivo",
                 })
                 continue
 
-            if c["concepto"] == "Empleada Doméstica":
+            if c["concepto"] == "EMPLEADA DOMÉSTICA":
                 monto = c.get("monto") or 0
                 if not monto:
                     monto = get_monto_empleada(anio_dev, mes_dev)
                 fecha = fecha_unificada if unificar_fechas else fecha_empleada
                 rows.append({
-                    "fecha": fecha, "descripcion": "Empleada Doméstica",
+                    "fecha": fecha, "descripcion": "EMPLEADA DOMÉSTICA",
                     "organismo": c.get("organismo", "ARCA"),
                     "monto": monto, "categoria": "Impositivo",
                 })
                 continue
 
-            if c["concepto"] == "Monotributo":
+            if c["concepto"] == "MONOTRIBUTO":
                 monto = c.get("monto") or 0
                 if not monto:
                     monto = get_monto_monotributo(anio_base, mes_base)
                 fecha = fecha_unificada if unificar_fechas else fecha_monotributo
                 rows.append({
-                    "fecha": fecha, "descripcion": "Monotributo",
+                    "fecha": fecha, "descripcion": "MONOTRIBUTO",
                     "organismo": c.get("organismo", "ARCA"),
                     "monto": monto, "categoria": "Impositivo",
                 })
