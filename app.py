@@ -811,11 +811,11 @@ with tab_imp:
     _hoy_imp = _date.today()
     _mes_dev = (_hoy_imp.month - 2) % 12 + 1
     _anio_dev = _hoy_imp.year - (1 if _hoy_imp.month == 1 else 0)
-    _ARCA_CONCEPTOS = {"Autónomos", "Empleada Doméstica", "Monotributo"}
+    _ARCA_CONCEPTOS = {"AUTÓNOMOS", "EMPLEADA DOMÉSTICA", "MONOTRIBUTO"}
     _arca_montos = {
-        "Autónomos": bl.get_monto_autonomos(_anio_dev, _mes_dev),
-        "Empleada Doméstica": bl.get_monto_empleada(_anio_dev, _mes_dev),
-        "Monotributo": bl.get_monto_monotributo(_hoy_imp.year, _hoy_imp.month),
+        "AUTÓNOMOS": bl.get_monto_autonomos(_anio_dev, _mes_dev),
+        "EMPLEADA DOMÉSTICA": bl.get_monto_empleada(_anio_dev, _mes_dev),
+        "MONOTRIBUTO": bl.get_monto_monotributo(_hoy_imp.year, _hoy_imp.month),
     }
 
     for reg in impositivos_db:
